@@ -11,6 +11,8 @@ externalPort = 80
 
 [env]
 PORT = "5000"
+MAESTRA_URL = "http://localhost:8825"
+NODE_ENV = "development"
 
 [deployment]
 deploymentTarget = "autoscale"
