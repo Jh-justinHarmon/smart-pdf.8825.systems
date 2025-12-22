@@ -1,0 +1,115 @@
+Smart PDF Companion - Project Brief
+Goal: Web app for viewing and interacting with Smart PDFs via Maestra overlay
+
+Core Features (MVP)
+1. PDF Viewer
+Drag-drop PDF upload
+Display PDF in browser
+Detect Smart PDF vs regular PDF
+Extract and display manifest
+2. Manifest Panel
+Show template metadata (name, type, version)
+Display sections and fields
+Show version history
+Display permissions and security info
+3. Maestra Chat Overlay
+Side panel chat interface
+Text selection → context binding
+Send to Maestra backend for rewrite
+Preview changes before applying
+4. Edit Flow
+Select text in PDF
+Click "Rewrite" → Maestra suggests alternatives
+Preview → Apply → Generate new PDF
+New version added to history
+Tech Stack
+Frontend:
+
+Vite + React (or Svelte)
+PDF.js for rendering
+TailwindCSS for styling
+Lucide icons
+Backend Integration:
+
+Maestra backend API (port 8825)
+Smart PDF import/export endpoints
+WebSocket for real-time chat (future)
+File Structure
+smart-pdf-companion/
+├── src/
+│   ├── components/
+│   │   ├── PDFViewer.jsx
+│   │   ├── ManifestPanel.jsx
+│   │   ├── MaestraChat.jsx
+│   │   └── HistoryPanel.jsx
+│   ├── lib/
+│   │   ├── pdfUtils.js (extract manifest)
+│   │   └── maestraClient.js (API calls)
+│   ├── App.jsx
+│   └── main.jsx
+├── public/
+├── package.json
+├── vite.config.js
+└── README.md
+User Flow
+1. User drags PDF into browser
+   ↓
+2. App detects Smart PDF, extracts manifest
+   ↓
+3. PDF displays left, manifest panel right
+   ↓
+4. User selects text in PDF
+   ↓
+5. Maestra chat opens with context
+   ↓
+6. User: "Make this more concise"
+   ↓
+7. Maestra returns rewrite suggestions
+   ↓
+8. User previews, clicks "Apply"
+   ↓
+9. New PDF generated with changes
+   ↓
+10. History updated, new version available
+API Integration
+Endpoints needed:
+
+POST /api/maestra/smart-pdf/import - Extract manifest
+POST /api/maestra/advisor/ask - Chat with Maestra
+POST /api/maestra/smart-pdf/export - Generate new PDF
+GET /api/maestra/context/{session_id} - Session context
+Deployment Options
+Option A: Local (Phase 3a)
+
+Run on localhost:5173 (Vite default)
+Direct connection to Maestra backend (localhost:8825)
+Fast iteration
+Option B: Replit (Phase 3b)
+
+Deploy to smart-pdf-companion.replit.app
+Add backend proxy for Maestra API
+Public URL for sharing
+Timeline
+Week 1 (Local):
+
+Day 1-2: Scaffold + PDF viewer + drag-drop
+Day 3-4: Manifest extraction + display
+Day 5: Maestra chat integration
+Week 2 (Features):
+
+Day 1-2: Text selection + context binding
+Day 3-4: Rewrite flow + preview
+Day 5: Apply + regenerate PDF
+Week 3 (Polish):
+
+Day 1-2: History panel + version switching
+Day 3-4: UI polish + error handling
+Day 5: Deploy to Replit
+Success Criteria
+✅ Drag-drop PDF loads in browser
+✅ Smart PDF detected, manifest displayed
+✅ Select text → Maestra chat opens
+✅ Rewrite suggestions returned
+✅ Apply → new PDF generated
+✅ History shows all versions
+✅ Works on mobile (responsive)
