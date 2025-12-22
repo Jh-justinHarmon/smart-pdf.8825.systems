@@ -5,7 +5,7 @@ import { ManifestPanel } from "@/components/ManifestPanel";
 import { MaestraChat } from "@/components/MaestraChat";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { Toolbar } from "@/components/Toolbar";
-import { detectSmartPdf, generateMockManifest } from "@/lib/pdfUtils";
+import { fileToBase64, importPdf, sendChatMessage } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, MessageSquare, Clock } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
@@ -26,8 +26,9 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("manifest");
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const handleFileLoad = useCallback((file: File, pdf: PDFDocumentProxy) => {
+  const handleFileLoad = useCallback(async (file: File, pdf: PDFDocumentProxy) => {
     setFileName(file.name);
     setPdfDocument(pdf);
     setTotalPages(pdf.numPages);
@@ -35,23 +36,39 @@ export default function Home() {
     setZoom(100);
     setMessages([]);
     setSelectedText(null);
+    setIsLoading(true);
     
-    const isSmart = detectSmartPdf(file.name);
-    setIsSmartPdf(isSmart);
-    
-    if (isSmart) {
-      const mockManifest = generateMockManifest(file.name);
-      setManifest(mockManifest);
+    try {
+      // Convert file to base64 and import via API
+      const base64Data = await fileToBase64(file);
+      const session = await importPdf(file.name, base64Data);
+      
+      setSessionId(session.id);
+      setIsSmartPdf(session.isSmartPdf);
+      setManifest(session.manifest);
+      
+      if (session.isSmartPdf && session.manifest) {
+        toast({
+          title: "Smart PDF Detected",
+          description: `Loaded: ${session.manifest.templateName}`,
+        });
+      } else {
+        toast({
+          title: "PDF Loaded",
+          description: "This is a regular PDF without Smart PDF features.",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to import PDF:", error);
       toast({
-        title: "Smart PDF Detected",
-        description: "Manifest data has been extracted successfully.",
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Failed to import PDF",
+        variant: "destructive",
       });
-    } else {
+      setIsSmartPdf(false);
       setManifest(null);
-      toast({
-        title: "PDF Loaded",
-        description: "This is a regular PDF without Smart PDF features.",
-      });
+    } finally {
+      setIsLoading(false);
     }
   }, [toast]);
 
@@ -62,6 +79,15 @@ export default function Home() {
   }, []);
 
   const handleSendMessage = useCallback(async (content: string) => {
+    if (!sessionId) {
+      toast({
+        title: "No Session",
+        description: "Please upload a PDF first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: "user",
@@ -73,38 +99,39 @@ export default function Home() {
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const suggestions = selectedText ? [
-        {
-          id: `sug-${Date.now()}-1`,
-          text: content.toLowerCase().includes("concise") 
-            ? selectedText.split(' ').slice(0, Math.ceil(selectedText.split(' ').length * 0.6)).join(' ') + "."
-            : selectedText.replace(/\./g, '!'),
-          applied: false,
-        },
-        {
-          id: `sug-${Date.now()}-2`,
-          text: content.toLowerCase().includes("formal")
-            ? `Regarding the matter of: ${selectedText}`
-            : `Here's the key point: ${selectedText.split(' ').slice(0, 10).join(' ')}...`,
-          applied: false,
-        },
-      ] : undefined;
-
+    try {
+      // Send message to Maestra via API
+      const response = await sendChatMessage(sessionId, content, selectedText || undefined);
+      
       const assistantMessage: ChatMessage = {
         id: `msg-${Date.now()}-response`,
         role: "assistant",
-        content: selectedText 
-          ? "I've analyzed the selected text and prepared some rewrite suggestions for you. Choose the one that best fits your needs, or let me know if you'd like different alternatives."
-          : "I'm here to help you edit and improve your PDF. Select some text in the document, and I can suggest rewrites, or ask me any questions about the content.",
+        content: response.reply,
         timestamp: new Date().toISOString(),
-        suggestions,
+        suggestions: response.suggestions?.map(s => ({ ...s, applied: false })),
       };
       
       setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      toast({
+        title: "Chat Failed",
+        description: error instanceof Error ? error.message : "Failed to send message",
+        variant: "destructive",
+      });
+      
+      // Add error message to chat
+      const errorMessage: ChatMessage = {
+        id: `msg-${Date.now()}-error`,
+        role: "assistant",
+        content: "I'm having trouble connecting to Maestra. Please check that the backend is running.",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
-  }, [selectedText]);
+    }
+  }, [sessionId, selectedText, toast]);
 
   const handleClearContext = useCallback(() => {
     setSelectedText(null);
