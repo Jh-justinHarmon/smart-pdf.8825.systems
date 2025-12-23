@@ -1,4 +1,4 @@
-@import url('../../../shared/design-tokens/tokens.css');
+@import "@8825/design-tokens/build/tokens.css";
 
 @tailwind base;
 @tailwind components;
